@@ -21,8 +21,8 @@ setuptools.setup(
     ],
     packages=setuptools.find_packages(
         include=(
-            "contracts",
-            "contracts.*",
+            "folks_contracts",
+            "folks_contracts.*",
         )
     ),
     python_requires=">=3.12",

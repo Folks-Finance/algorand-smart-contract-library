@@ -26,13 +26,7 @@ npm install
 
 ## Compilation
 
-To generate the TEAL code and ARC56 specs for the contracts, run the command:
-
-```bash
-npm run pre-build
-```
-
-To build the TS clients to interact with the contracts, run the command
+To generate the TEAL code, ARC56 specs and TS clients for the contracts, run the command:
 
 ```bash
 npm run build
