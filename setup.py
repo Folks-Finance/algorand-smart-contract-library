@@ -18,7 +18,6 @@ setuptools.setup(
     },
     install_requires=[
         "algorand-python>=2.7.0,<3",
-        "puyapy>=4.4.2,<5",
     ],
     packages=setuptools.find_packages(
         include=(
@@ -27,5 +26,6 @@ setuptools.setup(
         )
     ),
     python_requires=">=3.12",
+    package_data={"folks_contracts": ["py.typed"]},
     include_package_data=True
 )
