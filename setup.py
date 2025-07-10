@@ -18,6 +18,7 @@ setuptools.setup(
     },
     install_requires=[
         "algorand-python>=2.7.0,<3",
+        "puyapy>=4.4.2,<5",
     ],
     packages=setuptools.find_packages(
         include=(
