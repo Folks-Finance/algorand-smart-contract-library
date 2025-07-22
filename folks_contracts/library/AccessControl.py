@@ -59,6 +59,8 @@ class AccessControl(IAccessControl):
     def grant_role(self, role: Bytes16, account: Address) -> None:
         """Grant a role to an account
 
+        Increases the MBR for the contract's ledger balance.
+
         Args:
             role: The role to grant
             account: The account to grant the role to
@@ -73,6 +75,8 @@ class AccessControl(IAccessControl):
     def revoke_role(self, role: Bytes16, account: Address) -> None:
         """Revokes a role from an account
 
+        Reduces the MBR for the contract's ledger balance.
+
         Args:
             role: The role to revoke
             account: The account to revoke the role from
@@ -86,6 +90,8 @@ class AccessControl(IAccessControl):
     @abimethod
     def renounce_role(self, role: Bytes16) -> None:
         """Revokes a role from the caller
+
+        Reduces the MBR for the contract's ledger balance.
 
         Args:
             role: The role to renounce
@@ -133,6 +139,8 @@ class AccessControl(IAccessControl):
     def _set_role_admin(self, role: Bytes16, admin_role: Bytes16) -> None:
         """Sets a role's admin role.
 
+        Potentially increases the MBR for the contract's ledger balance.
+
         Args:
             role: The role whose admin role to set
             admin_role: The new admin role
@@ -155,10 +163,6 @@ class AccessControl(IAccessControl):
 
     @subroutine
     def _grant_role(self, role: Bytes16, account: Address) -> Bool:
-        # if new role then add the default admin role
-        if role not in self.roles:
-            self.roles[role] = self.default_admin_role()
-
         # grant role to account if it doesn't have
         if not self.has_role(role, account):
             address_role_key = self._address_role_key(role, account)

@@ -35,7 +35,17 @@ class RateLimiter(IRateLimiter):
 
     A rate limit is defined as a total amount to consume with a defined length of time. The RateLimiter can have
     multiple buckets with different parameters e.g. one bucket for inbound requests and one bucket for outbound
-    requests. A duration of zero is interpreted to mean an infinite bucket.
+    requests.
+
+    A duration of zero is interpreted to mean an infinite bucket. Therefore, you should rely on the `has_capacity()`
+    ABI method instead of the `get_current_capacity()` ABI method to determine whether there is sufficient capacity.
+
+    It is recommended to set an appropriate `limit` and `duration` such that the change in `current_capacity` for a
+    one-second delta isn't rounded down significantly. This can be achieved by scaling up your numbers e.g. if you want
+    a `limit` of 5 with a `duration` of a day, then use a `limit` of 5e18 with a consumption scaling factor of 1e18.
+
+    In addition, the timestamp in Algorand can be manipulated to some extent (see documentation for more details). If
+    this is a concern, you should consider using a larger `duration` to mitigate the impact.
     """
     def __init__(self) -> None:
         # bucket id -> bucket
@@ -44,6 +54,9 @@ class RateLimiter(IRateLimiter):
     @abimethod(readonly=True)
     def get_current_capacity(self, bucket_id: Bytes32) -> UInt256:
         """Returns the current capacity of the bucket were it to be updated.
+
+        You should NOT use this method to determine if there is sufficient capacity because a `duration` of zero is
+        interpreted as an infinite bucket regardless of the `current_capacity. Instead, use `has_capacity()`.
 
         Args:
             bucket_id: The bucket to get the current capacity for.
@@ -109,6 +122,8 @@ class RateLimiter(IRateLimiter):
     def _add_bucket(self, bucket_id: Bytes32, limit: UInt256, duration: UInt64) -> None:
         """Creates a new bucket with the specified parameters.
 
+        Increases the MBR for the contract's ledger balance.
+
         Args:
             bucket_id: The bucket identifier.
             limit: The maximum capacity during the duration time.
@@ -129,6 +144,8 @@ class RateLimiter(IRateLimiter):
     @subroutine
     def _remove_bucket(self, bucket_id: Bytes32) -> None:
         """Removes an existing bucket.
+
+        Reduces the MBR for the contract's ledger balance.
 
         Args:
             bucket_id: The bucket identifier.
@@ -186,6 +203,13 @@ class RateLimiter(IRateLimiter):
         # fails if bucket is unknown
         self._update_capacity(bucket_id)
 
+        # handle special case when updating from zero to non-zero duration bucket
+        rate_limit_bucket = self._get_bucket(bucket_id)
+        if new_duration and not rate_limit_bucket.duration.native:
+            # reset the capacity to equal the limit
+            self.rate_limit_buckets[bucket_id].current_capacity = rate_limit_bucket.limit
+            self.rate_limit_buckets[bucket_id].last_updated = ARC4UInt64(Global.latest_timestamp)
+
         # update duration
         self.rate_limit_buckets[bucket_id].duration = ARC4UInt64(new_duration)
         emit(BucketRateDurationUpdated(bucket_id, ARC4UInt64(new_duration)))
@@ -207,15 +231,14 @@ class RateLimiter(IRateLimiter):
 
         # ignore if duration is zero
         rate_limit_bucket = self._get_bucket(bucket_id)
-        if not rate_limit_bucket.duration.native:
-            return
+        if rate_limit_bucket.duration.native:
+            # ensure there is enough capacity
+            assert amount <= rate_limit_bucket.current_capacity, "Insufficient capacity to consume"
 
-        # ensure there is enough capacity
-        assert amount <= rate_limit_bucket.current_capacity, "Insufficient capacity to consume"
+            # consume amount
+            new_capacity = rate_limit_bucket.current_capacity.native - amount.native
+            self.rate_limit_buckets[bucket_id].current_capacity = ARC4UInt256(new_capacity)
 
-        # consume amount
-        new_capacity = rate_limit_bucket.current_capacity.native - amount.native
-        self.rate_limit_buckets[bucket_id].current_capacity = ARC4UInt256(new_capacity)
         emit(BucketConsumed(bucket_id, amount))
 
     @subroutine(inline=False)
@@ -234,15 +257,16 @@ class RateLimiter(IRateLimiter):
 
         # ignore if duration is zero
         rate_limit_bucket = self._get_bucket(bucket_id)
-        if not rate_limit_bucket.duration.native:
-            return
+        if rate_limit_bucket.duration.native:
+            # fill amount without exceeding limit
+            max_fill_amount = rate_limit_bucket.limit.native - rate_limit_bucket.current_capacity.native
+            fill_amount = amount.native if amount.native < max_fill_amount else max_fill_amount
+            new_capacity = rate_limit_bucket.current_capacity.native + fill_amount
+            self.rate_limit_buckets[bucket_id].current_capacity = ARC4UInt256(new_capacity)
+        else:
+            fill_amount = BigUInt(0)
 
-        # fill amount without exceeding limit
-        max_fill_amount = rate_limit_bucket.limit.native - rate_limit_bucket.current_capacity.native
-        fill_amount = amount.native if amount.native < max_fill_amount else max_fill_amount
-        new_capacity = rate_limit_bucket.current_capacity.native + fill_amount
-        self.rate_limit_buckets[bucket_id].current_capacity = ARC4UInt256(new_capacity)
-        emit(BucketFilled(bucket_id, ARC4UInt256(fill_amount)))
+        emit(BucketFilled(bucket_id, amount, ARC4UInt256(fill_amount)))
 
     @subroutine(inline=False)
     def _update_capacity(self, bucket_id: Bytes32) -> None:

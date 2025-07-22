@@ -8,6 +8,10 @@ from .Initialisable import Initialisable
 from .interfaces.IUpgradeable import IUpgradeable, UpgradeScheduled, UpgradeCancelled, UpgradeCompleted
 
 
+# Constants
+TWO_WEEKS_IN_SECONDS = 60 * 60 * 24 * 7 * 2
+
+
 # Structs
 class ScheduledContractUpgrade(Struct):
     program_sha256: Bytes32
@@ -51,7 +55,11 @@ class Upgradeable(IUpgradeable, AccessControl, Initialisable, ABC):
 
     It is the responsibility of the child contract to grant the `{upgradable_admin_role}`. The `initialise()` ABI
     method, which is left abstract, is the recommended place to do this. If the `{upgradable_admin_role}` is ungranted
-    then no account will be able to upgrade the contract.
+    then no account will be able to upgrade the contract using the scheduled upgrade mechanism.
+
+    In addition, when upgrading an application in Algorand, you cannot modify the allocated global/local storage and
+    program size. Therefore, it's recommended to pre-allocate all the necessary future storage and program size you may
+    need on the initial deployment of your application.
     """
     def __init__(self) -> None:
         AccessControl.__init__(self)
@@ -81,6 +89,9 @@ class Upgradeable(IUpgradeable, AccessControl, Initialisable, ABC):
         self._only_initialised()
         self._check_sender_role(self.upgradable_admin_role())
 
+        # ensure not setting too large of a delay
+        assert min_upgrade_delay <= self.max_for_min_upgrade_delay(), "Delay exceeds maximum allowed"
+
         # ensure timestamp is sufficiently in the future
         self._check_schedule_timestamp(timestamp)
 
@@ -88,7 +99,7 @@ class Upgradeable(IUpgradeable, AccessControl, Initialisable, ABC):
         if Global.latest_timestamp >= self.min_upgrade_delay.value.timestamp:
             self.min_upgrade_delay.value.delay_0 = self.min_upgrade_delay.value.delay_1
 
-        # schedule delay change, possibly overriding exising scheduled delay change
+        # schedule delay change, possibly overriding existing scheduled delay change
         self.min_upgrade_delay.value.delay_1 = ARC4UInt64(min_upgrade_delay)
         self.min_upgrade_delay.value.timestamp = ARC4UInt64(timestamp)
 
@@ -97,6 +108,9 @@ class Upgradeable(IUpgradeable, AccessControl, Initialisable, ABC):
     @abimethod
     def schedule_contract_upgrade(self, program_sha256: Bytes32, timestamp: UInt64) -> None:
         """Schedule the upgrade of the contract.
+
+        The upgrade will not automatically come into effect at the scheduled timestamp. Instead, the
+        `complete_contract_upgrade()` must be called to complete the process.
 
         Args:
             program_sha256 (Bytes32): The SHA256 of the new program
@@ -132,21 +146,23 @@ class Upgradeable(IUpgradeable, AccessControl, Initialisable, ABC):
 
         # delete scheduled upgrade
         self._check_upgrade_scheduled()
+        program_sha256 = self.scheduled_contract_upgrade.value.program_sha256.copy()
         del self.scheduled_contract_upgrade.value
 
-        emit(UpgradeCancelled(ARC4UInt64(Global.latest_timestamp)))
+        emit(UpgradeCancelled(program_sha256, ARC4UInt64(Global.latest_timestamp)))
 
     @abimethod(allow_actions=["UpdateApplication"])
     def complete_contract_upgrade(self) -> None:
         """Complete the scheduled upgrade
-        Anyone can call this method.
 
         Raises:
             AssertionError: If the contract is not initialised
+            AssertionError: If the caller does not have the upgradable admin role
             AssertionError: If the complete upgrade timestamp is not met
             AssertionError: If the contract SHA256 is not valid
         """
         self._only_initialised()
+        self._check_sender_role(self.upgradable_admin_role())
 
         # check timestamp has been met
         self._check_upgrade_scheduled()
@@ -178,6 +194,18 @@ class Upgradeable(IUpgradeable, AccessControl, Initialisable, ABC):
             Role bytes of length 16
         """
         return Bytes16.from_bytes(op.extract(op.keccak256(b"UPGRADEABLE_ADMIN"), 0, 16))
+
+    @abimethod(readonly=True)
+    def max_for_min_upgrade_delay(self) -> UInt64:
+        """Returns the maximum delay allowed for the minimum upgrade delay
+
+        This is used to prevent the scenario where `get_active_min_upgrade_delay()` is set to a very large value such
+        that it becomes effectively impossible to ever update and schedule an upgrade.
+
+        Returns:
+            The maximum minimum upgrade delay
+        """
+        return UInt64(TWO_WEEKS_IN_SECONDS)
 
     @abimethod(readonly=True)
     def get_active_min_upgrade_delay(self) -> UInt64:

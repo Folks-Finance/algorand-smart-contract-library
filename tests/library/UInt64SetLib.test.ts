@@ -81,6 +81,10 @@ describe("UInt64SetLib", () => {
       expect(await client.removeItem({ args: [5n, [34n, 2n, 5n, 873099n]] })).toEqual([true, [34n, 2n, 873099n]]);
     });
 
+    test("doesn't remove from array when empty", async () => {
+      expect(await client.removeItem({ args: [34n, []] })).toEqual([false, []]);
+    });
+
     test("doesn't remove from array when not present", async () => {
       const items = [34n, 2n, 5n, 873099n];
       expect(await client.removeItem({ args: [0n, items] })).toEqual([false, items]);

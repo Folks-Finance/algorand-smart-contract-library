@@ -52,8 +52,8 @@ describe("AccessControl", () => {
 
   describe("initialise", () => {
     afterAll(async () => {
-      // fund for enough balance for three roles with one of those assigned to two addresses
-      const APP_MIN_BALANCE = (180_000).microAlgos();
+      // fund for enough balance for three roles with one non default role admin
+      const APP_MIN_BALANCE = (145_400).microAlgos();
       await localnet.algorand.send.payment({
         sender: creator,
         receiver: getApplicationAddress(appId),
@@ -62,7 +62,7 @@ describe("AccessControl", () => {
     });
 
     test("succeeds and sets initialised state", async () => {
-      const APP_MIN_BALANCE = (145_000).microAlgos();
+      const APP_MIN_BALANCE = (127_700).microAlgos();
       const fundingTxn = await localnet.algorand.createTransaction.payment({
         sender: creator,
         receiver: getApplicationAddress(appId),
@@ -84,13 +84,11 @@ describe("AccessControl", () => {
       expect(await client.hasRole({ args: [DEFAULT_ADMIN_ROLE, defaultAdmin.toString()] })).toBeTruthy();
       expect(Uint8Array.from(await client.getRoleAdmin({ args: [DEFAULT_ADMIN_ROLE] }))).toEqual(DEFAULT_ADMIN_ROLE);
 
-      const roleAdmin = await client.state.box.roles.value(DEFAULT_ADMIN_ROLE);
+      await expect(client.state.box.roles.value(DEFAULT_ADMIN_ROLE)).rejects.toThrow("box not found");
       const addressRole = await client.state.box.addressesRoles.value({
         role: DEFAULT_ADMIN_ROLE,
         address: defaultAdmin.toString(),
       });
-      expect(roleAdmin).toBeDefined();
-      expect(Uint8Array.from(roleAdmin!)).toEqual(DEFAULT_ADMIN_ROLE);
       expect(addressRole).toBeTruthy();
     });
   });
@@ -178,13 +176,11 @@ describe("AccessControl", () => {
       expect(Uint8Array.from(await client.getRoleAdmin({ args: [ROLE] }))).toEqual(DEFAULT_ADMIN_ROLE);
       expect(await client.hasRole({ args: [ROLE, defaultAdmin.toString()] })).toBeFalsy();
 
-      const roleAdmin = await client.state.box.roles.value(ROLE);
+      await expect(client.state.box.roles.value(ROLE)).rejects.toThrow("box not found");
       const addressRole = await client.state.box.addressesRoles.value({
         role: ROLE,
         address: user.toString(),
       });
-      expect(roleAdmin).toBeDefined();
-      expect(Uint8Array.from(roleAdmin!)).toEqual(DEFAULT_ADMIN_ROLE);
       expect(addressRole).toBeTruthy();
     });
 
@@ -250,12 +246,9 @@ describe("AccessControl", () => {
         );
         expect(await client.hasRole({ args: [ROLE, user.toString()] })).toBeFalsy();
 
-        const roleAdmin = await client.state.box.roles.value(ROLE);
         await expect(client.state.box.addressesRoles.value({ role: ROLE, address: user.toString() })).rejects.toThrow(
           "box not found",
         );
-        expect(roleAdmin).toBeDefined();
-        expect(Uint8Array.from(roleAdmin!)).toEqual(DEFAULT_ADMIN_ROLE);
       });
 
       test("succeeds on second time without emitting event", async () => {
@@ -313,12 +306,9 @@ describe("AccessControl", () => {
         );
         expect(await client.hasRole({ args: [ROLE, user.toString()] })).toBeFalsy();
 
-        const roleAdmin = await client.state.box.roles.value(ROLE);
         await expect(client.state.box.addressesRoles.value({ role: ROLE, address: user.toString() })).rejects.toThrow(
           "box not found",
         );
-        expect(roleAdmin).toBeDefined();
-        expect(Uint8Array.from(roleAdmin!)).toEqual(DEFAULT_ADMIN_ROLE);
       });
 
       test("succeeds on second time without emitting event", async () => {

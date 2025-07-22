@@ -28,7 +28,8 @@ class BucketConsumed(Struct):
 
 class BucketFilled(Struct):
     bucket_id: Bytes32
-    amount: ARC4UInt256
+    requested_amount: ARC4UInt256
+    actual_amount: ARC4UInt256
 
 
 

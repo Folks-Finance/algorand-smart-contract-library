@@ -10,6 +10,7 @@ class UpgradeScheduled(Struct):
     timestamp: ARC4UInt64
 
 class UpgradeCancelled(Struct):
+    program_sha256: Bytes32
     timestamp: ARC4UInt64
 
 class UpgradeCompleted(Struct):

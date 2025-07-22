@@ -8,7 +8,13 @@ import { SimpleUpgradeableClient, SimpleUpgradeableFactory } from "../../specs/c
 import { getAddressRolesBoxKey, getRoleBoxKey } from "../utils/boxes.ts";
 import { getEventBytes, getRandomBytes, getRoleBytes } from "../utils/bytes.ts";
 import { PAGE_SIZE, calculateProgramSha256 } from "../utils/contract.ts";
-import { SECONDS_IN_DAY, SECONDS_IN_HOUR, advancePrevBlockTimestamp, getPrevBlockTimestamp } from "../utils/time.ts";
+import {
+  SECONDS_IN_DAY,
+  SECONDS_IN_HOUR,
+  SECONDS_IN_WEEK,
+  advancePrevBlockTimestamp,
+  getPrevBlockTimestamp,
+} from "../utils/time.ts";
 import { getRandomUInt } from "../utils/uint.ts";
 
 describe("Upgradeable", () => {
@@ -90,6 +96,10 @@ describe("Upgradeable", () => {
     expect(Uint8Array.from(await client.getRoleAdmin({ args: [UPGRADEABLE_ADMIN_ROLE] }))).toEqual(DEFAULT_ADMIN_ROLE);
   });
 
+  test("returns correct maximum for min upgrade delay", async () => {
+    expect(await client.maxForMinUpgradeDelay()).toEqual(SECONDS_IN_WEEK * 2n);
+  });
+
   describe("when uninitialised", () => {
     test("fails to schedule contract upgrade", async () => {
       await expect(
@@ -159,6 +169,23 @@ describe("Upgradeable", () => {
           ],
         }),
       ).rejects.toThrow("Access control unauthorised account");
+    });
+
+    test("fails when min upgrade delay is too large", async () => {
+      let prevTimestamp = await getPrevBlockTimestamp(localnet);
+      const minUpgradeDelay = (await client.maxForMinUpgradeDelay()) + 1n;
+      const timestamp = prevTimestamp + MIN_UPGRADE_DELAY;
+
+      await expect(
+        client.send.updateMinUpgradeDelay({
+          sender: admin,
+          args: [minUpgradeDelay, timestamp],
+          boxReferences: [
+            getRoleBoxKey(UPGRADEABLE_ADMIN_ROLE),
+            getAddressRolesBoxKey(UPGRADEABLE_ADMIN_ROLE, admin.publicKey),
+          ],
+        }),
+      ).rejects.toThrow("Delay exceeds maximum allowed");
     });
 
     test("fails when timestamp is not sufficiently in future", async () => {
@@ -352,7 +379,9 @@ describe("Upgradeable", () => {
     });
 
     test("succeeds and removes scheduled upgrade", async () => {
-      expect(await client.state.global.scheduledContractUpgrade()).toBeDefined();
+      const scheduledContractUpgrade = await client.state.global.scheduledContractUpgrade();
+      expect(scheduledContractUpgrade).toBeDefined();
+      const { programSha256 } = scheduledContractUpgrade!;
 
       const timestamp = await getPrevBlockTimestamp(localnet);
       const res = await client.send.cancelContractUpgrade({
@@ -364,7 +393,9 @@ describe("Upgradeable", () => {
         ],
       });
       expect(res.confirmations[0].logs).toBeDefined();
-      expect(res.confirmations[0].logs![0]).toEqual(getEventBytes("UpgradeCancelled(uint64)", [timestamp]));
+      expect(res.confirmations[0].logs![0]).toEqual(
+        getEventBytes("UpgradeCancelled(byte[32],uint64)", [programSha256, timestamp]),
+      );
       expect(await client.state.global.scheduledContractUpgrade()).toBeUndefined();
     });
 
@@ -387,9 +418,16 @@ describe("Upgradeable", () => {
     describe("when no upgrade scheduled", () => {
       test("fails", async () => {
         expect(await client.state.global.scheduledContractUpgrade()).toBeUndefined();
-        await expect(client.send.update.completeContractUpgrade({ sender: user, args: [] })).rejects.toThrow(
-          "Upgrade not scheduled",
-        );
+        await expect(
+          client.send.update.completeContractUpgrade({
+            sender: admin,
+            args: [],
+            boxReferences: [
+              getRoleBoxKey(UPGRADEABLE_ADMIN_ROLE),
+              getAddressRolesBoxKey(UPGRADEABLE_ADMIN_ROLE, admin.publicKey),
+            ],
+          }),
+        ).rejects.toThrow("Upgrade not scheduled");
       });
     });
 
@@ -413,22 +451,49 @@ describe("Upgradeable", () => {
         });
       });
 
+      test("fails when caller is not upgradeable admin", async () => {
+        await expect(
+          client.send.update.completeContractUpgrade({
+            sender: user,
+            args: [],
+            boxReferences: [
+              getRoleBoxKey(UPGRADEABLE_ADMIN_ROLE),
+              getAddressRolesBoxKey(UPGRADEABLE_ADMIN_ROLE, user.publicKey),
+            ],
+          }),
+        ).rejects.toThrow("Access control unauthorised account");
+      });
+
       test("fails when timestamp not been reached", async () => {
         const prevTimestamp = await getPrevBlockTimestamp(localnet);
         const { timestamp: scheduledTimestamp } = (await client.state.global.scheduledContractUpgrade())!;
         await advancePrevBlockTimestamp(localnet, scheduledTimestamp - prevTimestamp - 1n);
-        await expect(client.send.update.completeContractUpgrade({ sender: user, args: [] })).rejects.toThrow(
-          "Schedule complete ts not met",
-        );
+        await expect(
+          client.send.update.completeContractUpgrade({
+            sender: admin,
+            args: [],
+            boxReferences: [
+              getRoleBoxKey(UPGRADEABLE_ADMIN_ROLE),
+              getAddressRolesBoxKey(UPGRADEABLE_ADMIN_ROLE, admin.publicKey),
+            ],
+          }),
+        ).rejects.toThrow("Schedule complete ts not met");
       });
 
       test("fails when program sha256 is different", async () => {
         const prevTimestamp = await getPrevBlockTimestamp(localnet);
         const { timestamp: scheduledTimestamp } = (await client.state.global.scheduledContractUpgrade())!;
         await advancePrevBlockTimestamp(localnet, scheduledTimestamp - prevTimestamp);
-        await expect(client.send.update.completeContractUpgrade({ sender: user, args: [] })).rejects.toThrow(
-          "Invalid program SHA256",
-        );
+        await expect(
+          client.send.update.completeContractUpgrade({
+            sender: admin,
+            args: [],
+            boxReferences: [
+              getRoleBoxKey(UPGRADEABLE_ADMIN_ROLE),
+              getAddressRolesBoxKey(UPGRADEABLE_ADMIN_ROLE, admin.publicKey),
+            ],
+          }),
+        ).rejects.toThrow("Invalid program SHA256");
       });
 
       test("succeeds and completes scheduled upgrade", async () => {
@@ -439,9 +504,14 @@ describe("Upgradeable", () => {
         const programSha256 = calculateProgramSha256(approvalProgramToUpdateTo, clearStateProgramToUpdateTo);
 
         const res = await localnet.algorand.send.appUpdateMethodCall({
-          sender: user,
+          sender: admin,
           appId,
           method: client.appClient.getABIMethod("complete_contract_upgrade"),
+          args: [],
+          boxReferences: [
+            getRoleBoxKey(UPGRADEABLE_ADMIN_ROLE),
+            getAddressRolesBoxKey(UPGRADEABLE_ADMIN_ROLE, admin.publicKey),
+          ],
           approvalProgram: approvalProgramToUpdateTo,
           clearStateProgram: clearStateProgramToUpdateTo,
         });

@@ -7,7 +7,7 @@ from ..types import ARC4UInt64
 
 """Library for a set of UInt64 values. Implemented using dynamic arrays.
 
-Note only supports up to 511 items because item on stack cannot exceed 4098 bytes.
+Note only supports up to 511 items because item on stack cannot exceed 4096 bytes.
 """
 @subroutine
 def has_item(to_search: UInt64, items: DynamicArray[ARC4UInt64]) -> Bool:
@@ -30,10 +30,14 @@ def add_item(to_add: UInt64, items: DynamicArray[ARC4UInt64]) -> Tuple[Bool, Dyn
 
 @subroutine
 def remove_item(to_remove: UInt64, items: DynamicArray[ARC4UInt64]) -> Tuple[Bool, DynamicArray[ARC4UInt64]]:
+    # handle special case where empty items
+    if items.length == 0:
+        return Bool(False), items.copy()
+
     last_idx = items.length - 1
     for idx, item in uenumerate(items):
         if item.native == to_remove:
-            # remove last item to replace the "to_remove" item or remove entirely if it's the match
+            # "last_item" used to replace "to_remove" item or removed entirely if it's the match
             last_item = items.pop()
             if idx != last_idx:
                 items[idx] = last_item

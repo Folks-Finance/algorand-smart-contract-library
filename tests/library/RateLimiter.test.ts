@@ -340,6 +340,38 @@ describe("RateLimiter", () => {
       expect(rateLimitBucket).toBeDefined();
       expect(rateLimitBucket).toEqual(expectedBucket);
     });
+
+    test("resets capacity when updating from zero to non-zero duration", async () => {
+      // set duration to zero
+      await client.send.updateRateDuration({ args: [bucketId, 0n] });
+      expect(await client.getRateDuration({ args: [bucketId] })).toEqual(0n);
+
+      // setup
+      await client.send.setCurrentCapacity({ args: [bucketId, limit / 2n] });
+      const prevBlockTimestamp = await getPrevBlockTimestamp(localnet);
+
+      // update duration
+      const newDuration = getRandomUInt(SECONDS_IN_DAY);
+      const res = await client.send.updateRateDuration({ args: [bucketId, newDuration] });
+      expect(res.confirmations[0].logs).toBeDefined();
+      expect(res.confirmations[0].logs![0]).toEqual(
+        getEventBytes("BucketRateDurationUpdated(byte[32],uint64)", [bucketId, newDuration]),
+      );
+
+      // should consider updated current capacity
+      expect(await client.getCurrentCapacity({ args: [bucketId] })).toEqual(limit);
+      expect(await client.getRateDuration({ args: [bucketId] })).toEqual(newDuration);
+      const expectedBucket = {
+        limit,
+        currentCapacity: limit,
+        duration: newDuration,
+        lastUpdated: prevBlockTimestamp,
+      };
+      expect(await client.getBucket({ args: [bucketId] })).toEqual(expectedBucket);
+      const rateLimitBucket = await client.state.box.rateLimitBuckets.value(bucketId);
+      expect(rateLimitBucket).toBeDefined();
+      expect(rateLimitBucket).toEqual(expectedBucket);
+    });
   });
 
   describe("has capacity", () => {
@@ -413,11 +445,22 @@ describe("RateLimiter", () => {
     });
 
     test("ignores if duration is zero", async () => {
+      // consuming more than limit is even allowed
+      const amount = limit + 1n;
+      const expectedBucket = await client.getBucket({ args: [bucketId] });
+
+      // consume amount
       const res = await client.send.consumeAmount({
-        args: [zeroDurationBucketId, 1n],
+        args: [zeroDurationBucketId, amount],
         boxReferences: [getBucketBoxKey(zeroDurationBucketId)],
       });
-      expect(res.confirmations[0].logs).toBeUndefined();
+      expect(res.confirmations[0].logs).toBeDefined();
+      expect(res.confirmations[0].logs![0]).toEqual(
+        getEventBytes("BucketConsumed(byte[32],uint256)", [zeroDurationBucketId, amount]),
+      );
+
+      // should have no state changes
+      expect(await client.getBucket({ args: [bucketId] })).toEqual(expectedBucket);
     });
 
     test("fails when insufficient capacity", async () => {
@@ -474,11 +517,22 @@ describe("RateLimiter", () => {
     });
 
     test("ignores if duration is zero", async () => {
+      // setup
+      const amount = 1n;
+      const expectedBucket = await client.getBucket({ args: [bucketId] });
+
+      // fill amount
       const res = await client.send.fillAmount({
-        args: [zeroDurationBucketId, 1n],
+        args: [zeroDurationBucketId, amount],
         boxReferences: [getBucketBoxKey(zeroDurationBucketId)],
       });
-      expect(res.confirmations[0].logs).toBeUndefined();
+      expect(res.confirmations[0].logs).toBeDefined();
+      expect(res.confirmations[0].logs![0]).toEqual(
+        getEventBytes("BucketFilled(byte[32],uint256,uint256)", [zeroDurationBucketId, amount, 0n]),
+      );
+
+      // should have no state changes
+      expect(await client.getBucket({ args: [bucketId] })).toEqual(expectedBucket);
     });
 
     test("succeeds when amount is less than consumption", async () => {
@@ -493,7 +547,7 @@ describe("RateLimiter", () => {
       const res = await client.send.fillAmount({ args: [bucketId, amount] });
       expect(res.confirmations[0].logs).toBeDefined();
       expect(res.confirmations[0].logs![0]).toEqual(
-        getEventBytes("BucketFilled(byte[32],uint256)", [bucketId, amount]),
+        getEventBytes("BucketFilled(byte[32],uint256,uint256)", [bucketId, amount, amount]),
       );
 
       // should consider updated current capacity
@@ -518,7 +572,7 @@ describe("RateLimiter", () => {
       const res = await client.send.fillAmount({ args: [bucketId, amount] });
       expect(res.confirmations[0].logs).toBeDefined();
       expect(res.confirmations[0].logs![0]).toEqual(
-        getEventBytes("BucketFilled(byte[32],uint256)", [bucketId, amount - extra]),
+        getEventBytes("BucketFilled(byte[32],uint256,uint256)", [bucketId, amount, amount - extra]),
       );
 
       // should consider updated current capacity
@@ -545,7 +599,9 @@ describe("RateLimiter", () => {
         boxReferences: [getBucketBoxKey(bucketId)],
       });
       expect(res.confirmations[0].logs).toBeDefined();
-      expect(res.confirmations[0].logs![0]).toEqual(getEventBytes("BucketFilled(byte[32],uint256)", [bucketId, 0n]));
+      expect(res.confirmations[0].logs![0]).toEqual(
+        getEventBytes("BucketFilled(byte[32],uint256,uint256)", [bucketId, MAX_UINT256, 0n]),
+      );
 
       // should consider updated current capacity
       expect(await client.getCurrentCapacity({ args: [bucketId] })).toEqual(MAX_UINT256);
