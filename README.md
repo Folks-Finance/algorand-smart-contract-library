@@ -4,6 +4,8 @@
 
 The Folks Smart Contract Library is a curated, modular collection of audited, reusable smart contracts designed to accelerate development on the Algorand blockchain. The library allows you to focus on your business logic by abstracting away common patterns and security mechanisms.
 
+Please refer to the official [documentation](https://docs.google.com/document/d/1asxwEYzNtG2cTTvuTwBszMmEUKMtkL8s7bBROeD1LlU/edit?usp=sharing) for further details.
+
 ## Requirements
 
 - Linux or macOS
