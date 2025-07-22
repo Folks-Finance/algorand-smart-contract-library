@@ -3,13 +3,11 @@
   "version": "0.0.1",
   "scripts": {
     "format": "prettier --write .",
-    "teal": "algokit compile py ./contracts --target-avm-version 11 --optimization-level 2 --no-output-source-map --no-output-client --no-output-arc32 --no-output-arc56 --output-teal --out-dir ../specs/teal",
-    "arc56": "algokit compile py ./contracts --target-avm-version 11 --optimization-level 2 --no-output-source-map --no-output-client --no-output-arc32 --output-arc56 --no-output-teal --out-dir ../specs/arc56",
+    "teal": "algokit compile py folks_contracts --target-avm-version 11 --optimization-level 2 --no-output-source-map --no-output-client --no-output-arc32 --no-output-arc56 --output-teal --out-dir ../specs/teal",
+    "arc56": "algokit compile py folks_contracts --target-avm-version 11 --optimization-level 2 --no-output-source-map --no-output-client --no-output-arc32 --output-arc56 --no-output-teal --out-dir ../specs/arc56",
     "client": "algokit generate client ./specs/arc56 --output ./specs/client/{contract_name}.client.ts --language typescript",
-    "pre-build": "npm run teal & npm run arc56",
-    "build": "npm run client",
-    "test": "jest --runInBand",
-    "script": "tsx --env-file=.env"
+    "build": "npm run teal && npm run arc56 && npm run client",
+    "test": "jest --runInBand"
   },
   "dependencies": {
     "@algorandfoundation/algokit-utils": "^9.1.1",
@@ -23,8 +21,7 @@
     "@types/jest": "^29.0.1",
     "dotenv": "^16.0.0",
     "jest": "^29.0.3",
-    "prettier": "^3.5.3",
-    "tsx": "^4.19.3"
+    "prettier": "^3.5.3"
   },
   "type": "module"
 }
