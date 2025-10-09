@@ -7,6 +7,7 @@ __all__ = [
     "extensions",
     "interfaces",
     "AccessControl",
+    "BytesUtils",
     "Initialisable",
     "RateLimiter",
     "UInt64SetLib",
