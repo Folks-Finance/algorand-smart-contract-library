@@ -36,7 +36,7 @@ describe("BytesUtils", () => {
 
       expect(appId).not.toEqual(0n);
     }
-  }, 20_000);
+  });
 
   describe("convert uint64 to bytes32", () => {
     test.each([{ a: 0n }, { a: 15n }, { a: 32953523n }, { a: MAX_UINT64 }])("of $a succeeds", async ({ a }) => {
