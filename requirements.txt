@@ -3,3 +3,4 @@ algokit-utils==4.2.1
 algorand-python==3.0.0
 puyapy==5.0.1
 py-algorand-sdk==2.11.1
+setuptools==80.9.0
