@@ -17,7 +17,9 @@ setuptools.setup(
         "Source": "https://github.com/Folks-Finance/algorand-smart-contract-library",
     },
     install_requires=[
-        "algorand-python>=2.7.0,<3",
+        "algokit>=2.9.1,<3",
+        "algorand-python>=3.0.0,<4",
+        "puyapy>=5.0.1,<6",
     ],
     packages=setuptools.find_packages(
         include=(
