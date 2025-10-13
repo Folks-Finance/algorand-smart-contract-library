@@ -19,7 +19,7 @@ setuptools.setup(
     install_requires=[
         "algokit>=2.9.1,<3",
         "algorand-python>=3.0.0,<4",
-        "puyapy>=5.1.0,<6",
+        "puyapy>=5.2.0,<6",
     ],
     packages=setuptools.find_packages(
         include=(
