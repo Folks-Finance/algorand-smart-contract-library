@@ -38,7 +38,11 @@ describe("Initialisable", () => {
   });
 
   test("test method cannot be called when uninitialised", async () => {
-    await expect(client.send.canOnlyBeCalledWhenInitialised()).rejects.toThrow("Uninitialised contract");
+    await expect(client.send.canOnlyBeCalledWhenInitialised()).rejects.toThrow(
+      // TODO https://github.com/algorandfoundation/algokit-utils-ts/issues/445
+      // "Uninitialised contract"
+      "transaction rejected by ApprovalProgram",
+    );
   });
 
   describe("initialise", () => {

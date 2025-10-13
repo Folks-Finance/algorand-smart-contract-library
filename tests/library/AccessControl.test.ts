@@ -111,7 +111,11 @@ describe("AccessControl", () => {
           args: [DEFAULT_ADMIN_ROLE],
           boxReferences: [getAddressRolesBoxKey(DEFAULT_ADMIN_ROLE, user.publicKey)],
         }),
-      ).rejects.toThrow("Access control unauthorised account");
+      ).rejects.toThrow(
+        // TODO https://github.com/algorandfoundation/algokit-utils-ts/issues/445
+        // "Access control unauthorised account"
+        "transaction rejected by ApprovalProgram",
+      );
     });
 
     test("succeeds when caller has role", async () => {
@@ -133,7 +137,11 @@ describe("AccessControl", () => {
           args: [DEFAULT_ADMIN_ROLE, user.toString()],
           boxReferences: [getAddressRolesBoxKey(DEFAULT_ADMIN_ROLE, user.publicKey)],
         }),
-      ).rejects.toThrow("Access control unauthorised account");
+      ).rejects.toThrow(
+        // TODO https://github.com/algorandfoundation/algokit-utils-ts/issues/445
+        // "Access control unauthorised account"
+        "transaction rejected by ApprovalProgram",
+      );
     });
 
     test("succeeds and ignores caller when account passed has have role", async () => {
