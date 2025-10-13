@@ -332,7 +332,7 @@ describe("Upgradeable", () => {
         getEventBytes("UpgradeScheduled(byte[32],uint64)", [programSha256, timestamp]),
       );
       expect(await client.state.global.scheduledContractUpgrade()).toEqual({
-        programSha256: [...programSha256],
+        programSha256,
         timestamp,
       });
     });
@@ -358,7 +358,7 @@ describe("Upgradeable", () => {
         getEventBytes("UpgradeScheduled(byte[32],uint64)", [programSha256, timestamp]),
       );
       expect(await client.state.global.scheduledContractUpgrade()).toEqual({
-        programSha256: [...programSha256],
+        programSha256,
         timestamp,
       });
     });
@@ -446,7 +446,7 @@ describe("Upgradeable", () => {
           ],
         });
         expect(await client.state.global.scheduledContractUpgrade()).toEqual({
-          programSha256: [...programSha256],
+          programSha256,
           timestamp,
         });
       });
