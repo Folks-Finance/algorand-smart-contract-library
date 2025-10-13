@@ -1,6 +1,7 @@
 from algopy import BoxMap, Txn, op, subroutine
 from algopy.arc4 import Address, Bool, Struct, abimethod, emit
 
+from .. import constants as const
 from ..types import Bytes16
 from .interfaces.IAccessControl import IAccessControl, RoleAdminChanged, RoleGranted, RoleRevoked
 
@@ -19,7 +20,7 @@ class AccessControl(IAccessControl):
     ```python
     @abimethod(readonly=True)
     def my_role(self) -> Bytes16:
-        return Bytes16.from_bytes(op.extract(op.keccak256(b"MY_ROLE"), 0, 16))
+        return Bytes16.from_bytes(op.extract(op.keccak256(b"MY_ROLE"), 0, const.BYTES16_LENGTH))
     ```
 
     Roles can be used to represent a set of permissions. To restrict access to a method call, use {has_role}:
@@ -105,7 +106,7 @@ class AccessControl(IAccessControl):
         Returns:
             Empty bytes of length 16
         """
-        return Bytes16.from_bytes(op.bzero(16))
+        return Bytes16.from_bytes(op.bzero(const.BYTES16_LENGTH))
 
     @abimethod(readonly=True)
     def has_role(self, role: Bytes16, account: Address) -> Bool:

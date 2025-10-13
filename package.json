@@ -7,11 +7,12 @@
     "arc56": "algokit compile py folks_contracts --target-avm-version 11 --optimization-level 2 --no-output-source-map --no-output-client --no-output-arc32 --output-arc56 --no-output-teal --out-dir ../specs/arc56",
     "client": "algokit generate client ./specs/arc56 --output ./specs/client/{contract_name}.client.ts --language typescript",
     "build": "npm run teal && npm run arc56 && npm run client",
+    "clean": "rm -rf ./specs",
     "test": "jest --runInBand"
   },
   "dependencies": {
-    "@algorandfoundation/algokit-utils": "^9.1.1",
-    "algosdk": "^3.2.0"
+    "@algorandfoundation/algokit-utils": "^9.1.2",
+    "algosdk": "^3.5.2"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.26.9",

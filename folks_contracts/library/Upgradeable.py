@@ -2,6 +2,7 @@ from abc import ABC
 from algopy import Bytes, Global, GlobalState, Txn, UInt64, op, subroutine, urange
 from algopy.arc4 import Struct, abimethod, emit
 
+from .. import constants as const
 from ..types import ARC4UInt64, Bytes16, Bytes32
 from .AccessControl import AccessControl
 from .Initialisable import Initialisable
@@ -193,7 +194,7 @@ class Upgradeable(IUpgradeable, AccessControl, Initialisable, ABC):
         Returns:
             Role bytes of length 16
         """
-        return Bytes16.from_bytes(op.extract(op.keccak256(b"UPGRADEABLE_ADMIN"), 0, 16))
+        return Bytes16.from_bytes(op.extract(op.keccak256(b"UPGRADEABLE_ADMIN"), 0, const.BYTES16_LENGTH))
 
     @abimethod(readonly=True)
     def max_for_min_upgrade_delay(self) -> UInt64:
@@ -218,7 +219,7 @@ class Upgradeable(IUpgradeable, AccessControl, Initialisable, ABC):
         return (
             min_upgrade_delay.delay_1 if Global.latest_timestamp >= min_upgrade_delay.timestamp
             else min_upgrade_delay.delay_0
-        ).native
+        ).as_uint64()
 
     @subroutine
     def _check_schedule_timestamp(self, timestamp: UInt64) -> None:

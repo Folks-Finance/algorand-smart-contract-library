@@ -86,7 +86,7 @@ class RateLimiter(IRateLimiter):
 
         # ignore if duration is zero
         rate_limit_bucket = self._get_bucket(bucket_id)
-        if not rate_limit_bucket.duration.native:
+        if not rate_limit_bucket.duration.as_uint64():
             return Bool(True)
 
         # ensure there is enough capacity
@@ -116,7 +116,7 @@ class RateLimiter(IRateLimiter):
             AssertionError: If the bucket is unknown.
         """
         self._check_bucket_known(bucket_id)
-        return self.rate_limit_buckets[bucket_id].duration.native
+        return self.rate_limit_buckets[bucket_id].duration.as_uint64()
 
     @subroutine
     def _add_bucket(self, bucket_id: Bytes32, limit: UInt256, duration: UInt64) -> None:
@@ -174,15 +174,15 @@ class RateLimiter(IRateLimiter):
 
         # increase or decrease capacity by change in limit
         rate_limit_bucket = self._get_bucket(bucket_id)
-        if new_limit.native < rate_limit_bucket.limit.native:
+        if new_limit.as_biguint() < rate_limit_bucket.limit.as_biguint():
             # if reducing limit then decrease capacity by difference
-            diff = rate_limit_bucket.limit.native - new_limit.native
-            new_capacity = rate_limit_bucket.current_capacity.native - diff \
-                if rate_limit_bucket.current_capacity.native > diff else BigUInt(0)
+            diff = rate_limit_bucket.limit.as_biguint() - new_limit.as_biguint()
+            new_capacity = rate_limit_bucket.current_capacity.as_biguint() - diff \
+                if rate_limit_bucket.current_capacity.as_biguint() > diff else BigUInt(0)
         else:
             # if increasing limit then increase capacity by difference
-            diff = new_limit.native - rate_limit_bucket.limit.native
-            new_capacity = rate_limit_bucket.current_capacity.native + diff
+            diff = new_limit.as_biguint() - rate_limit_bucket.limit.as_biguint()
+            new_capacity = rate_limit_bucket.current_capacity.as_biguint() + diff
         self.rate_limit_buckets[bucket_id].current_capacity = ARC4UInt256(new_capacity)
 
         # update limit
@@ -205,7 +205,7 @@ class RateLimiter(IRateLimiter):
 
         # handle special case when updating from zero to non-zero duration bucket
         rate_limit_bucket = self._get_bucket(bucket_id)
-        if new_duration and not rate_limit_bucket.duration.native:
+        if new_duration and not rate_limit_bucket.duration.as_uint64():
             # reset the capacity to equal the limit
             self.rate_limit_buckets[bucket_id].current_capacity = rate_limit_bucket.limit
             self.rate_limit_buckets[bucket_id].last_updated = ARC4UInt64(Global.latest_timestamp)
@@ -231,12 +231,12 @@ class RateLimiter(IRateLimiter):
 
         # ignore if duration is zero
         rate_limit_bucket = self._get_bucket(bucket_id)
-        if rate_limit_bucket.duration.native:
+        if rate_limit_bucket.duration.as_uint64():
             # ensure there is enough capacity
             assert amount <= rate_limit_bucket.current_capacity, "Insufficient capacity to consume"
 
             # consume amount
-            new_capacity = rate_limit_bucket.current_capacity.native - amount.native
+            new_capacity = rate_limit_bucket.current_capacity.as_biguint() - amount.as_biguint()
             self.rate_limit_buckets[bucket_id].current_capacity = ARC4UInt256(new_capacity)
 
         emit(BucketConsumed(bucket_id, amount))
@@ -257,11 +257,11 @@ class RateLimiter(IRateLimiter):
 
         # ignore if duration is zero
         rate_limit_bucket = self._get_bucket(bucket_id)
-        if rate_limit_bucket.duration.native:
+        if rate_limit_bucket.duration.as_uint64():
             # fill amount without exceeding limit
-            max_fill_amount = rate_limit_bucket.limit.native - rate_limit_bucket.current_capacity.native
-            fill_amount = amount.native if amount.native < max_fill_amount else max_fill_amount
-            new_capacity = rate_limit_bucket.current_capacity.native + fill_amount
+            max_fill_amount = rate_limit_bucket.limit.as_biguint() - rate_limit_bucket.current_capacity.as_biguint()
+            fill_amount = amount.as_biguint() if amount.as_biguint() < max_fill_amount else max_fill_amount
+            new_capacity = rate_limit_bucket.current_capacity.as_biguint() + fill_amount
             self.rate_limit_buckets[bucket_id].current_capacity = ARC4UInt256(new_capacity)
         else:
             fill_amount = BigUInt(0)
@@ -274,13 +274,13 @@ class RateLimiter(IRateLimiter):
         rate_limit_bucket = self._get_bucket(bucket_id)
 
         # ignore if duration is zero
-        if not rate_limit_bucket.duration.native:
+        if not rate_limit_bucket.duration.as_uint64():
             return
 
         # increase capacity by fill rate of <limit> per <duration> without exceeding limit
-        time_delta = Global.latest_timestamp - rate_limit_bucket.last_updated.native
-        new_capacity_without_max = rate_limit_bucket.current_capacity.native + (
-                (rate_limit_bucket.limit.native * time_delta) // rate_limit_bucket.duration.native
+        time_delta = Global.latest_timestamp - rate_limit_bucket.last_updated.as_uint64()
+        new_capacity_without_max = rate_limit_bucket.current_capacity.as_biguint() + (
+                (rate_limit_bucket.limit.as_biguint() * time_delta) // rate_limit_bucket.duration.as_uint64()
         )
 
         # update capacity and last updated timestamp

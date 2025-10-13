@@ -12,7 +12,7 @@ Note only supports up to 511 items because item on stack cannot exceed 4096 byte
 @subroutine
 def has_item(to_search: UInt64, items: DynamicArray[ARC4UInt64]) -> Bool:
     for item in items:
-        if item.native == to_search:
+        if item.as_uint64() == to_search:
             return Bool(True)
     return Bool(False)
 
@@ -20,7 +20,7 @@ def has_item(to_search: UInt64, items: DynamicArray[ARC4UInt64]) -> Bool:
 def add_item(to_add: UInt64, items: DynamicArray[ARC4UInt64]) -> Tuple[Bool, DynamicArray[ARC4UInt64]]:
     # check if already added in which case skip
     for item in items:
-        if item.native == to_add:
+        if item.as_uint64() == to_add:
             # already added
            return Bool(False), items.copy()
 
@@ -36,7 +36,7 @@ def remove_item(to_remove: UInt64, items: DynamicArray[ARC4UInt64]) -> Tuple[Boo
 
     last_idx = items.length - 1
     for idx, item in uenumerate(items):
-        if item.native == to_remove:
+        if item.as_uint64() == to_remove:
             # "last_item" used to replace "to_remove" item or removed entirely if it's the match
             last_item = items.pop()
             if idx != last_idx:
