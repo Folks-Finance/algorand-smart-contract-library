@@ -1,6 +1,6 @@
 import { algorandFixture } from "@algorandfoundation/algokit-utils/testing";
 import type { TransactionSignerAccount } from "@algorandfoundation/algokit-utils/types/account";
-import { getApplicationAddress } from "algosdk";
+import { OnApplicationComplete, getApplicationAddress } from "algosdk";
 import type { Account, Address } from "algosdk";
 
 import { MockAccessControlClient, MockAccessControlFactory } from "../../specs/client/MockAccessControl.client.ts";
@@ -148,6 +148,17 @@ describe("AccessControl", () => {
   });
 
   describe("grant role", () => {
+    test.each([{ length: 8 }, { length: 32 }])(`fails when role is $length bytes`, async ({ length }) => {
+      await expect(
+        localnet.algorand.send.appCall({
+          sender: defaultAdmin,
+          appId,
+          onComplete: OnApplicationComplete.NoOpOC,
+          args: [client.appClient.getABIMethod("grant_role").getSelector(), getRandomBytes(length), user.publicKey],
+        }),
+      ).rejects.toThrow("invalid number of bytes for arc4.static_array<arc4.uint8, 16>");
+    });
+
     test("fails for new role when caller is not default admin", async () => {
       await expect(
         client.send.grantRole({
@@ -202,6 +213,17 @@ describe("AccessControl", () => {
   });
 
   describe("revoke role", () => {
+    test.each([{ length: 8 }, { length: 32 }])(`fails when role is $length bytes`, async ({ length }) => {
+      await expect(
+        localnet.algorand.send.appCall({
+          sender: defaultAdmin,
+          appId,
+          onComplete: OnApplicationComplete.NoOpOC,
+          args: [client.appClient.getABIMethod("revoke_role").getSelector(), getRandomBytes(length), user.publicKey],
+        }),
+      ).rejects.toThrow("invalid number of bytes for arc4.static_array<arc4.uint8, 16>");
+    });
+
     describe("when role not had", () => {
       test("succeeds without emitting event", async () => {
         expect(await client.hasRole({ args: [OTHER_ROLE, user.toString()] })).toBeFalsy();
@@ -268,6 +290,17 @@ describe("AccessControl", () => {
   });
 
   describe("renounce role", () => {
+    test.each([{ length: 8 }, { length: 32 }])(`fails when role is $length bytes`, async ({ length }) => {
+      await expect(
+        localnet.algorand.send.appCall({
+          sender: user,
+          appId,
+          onComplete: OnApplicationComplete.NoOpOC,
+          args: [client.appClient.getABIMethod("renounce_role").getSelector(), getRandomBytes(length)],
+        }),
+      ).rejects.toThrow("invalid number of bytes for arc4.static_array<arc4.uint8, 16>");
+    });
+
     describe("when role not had", () => {
       test("succeeds without emitting event", async () => {
         expect(await client.hasRole({ args: [OTHER_ROLE, user.toString()] })).toBeFalsy();
