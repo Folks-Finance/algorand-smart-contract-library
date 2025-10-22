@@ -55,6 +55,8 @@ class RateLimiter(IRateLimiter):
     def get_current_capacity(self, bucket_id: Bytes32) -> UInt256:
         """Returns the current capacity of the bucket were it to be updated.
 
+        If you call this method (as opposed to simulate) then the capacity will be updated on chain.
+
         You should NOT use this method to determine if there is sufficient capacity because a `duration` of zero is
         interpreted as an infinite bucket regardless of the `current_capacity. Instead, use `has_capacity()`.
 
@@ -73,6 +75,8 @@ class RateLimiter(IRateLimiter):
     @abimethod(readonly=True)
     def has_capacity(self, bucket_id: Bytes32, amount: UInt256) -> Bool:
         """Returns whether there's sufficient capacity inside bucket for amount.
+
+        If you call this method (as opposed to simulate) then the capacity will be updated on chain.
 
         Args:
             bucket_id: The bucket to consume from.
