@@ -67,6 +67,20 @@ describe("Upgradeable", () => {
     }
   });
 
+  test("fails to deploy when min upgrade delay is too large", async () => {
+    const minUpgradeDelay = SECONDS_IN_WEEK * 2n + 1n;
+    await expect(
+      factory.deploy({
+        createParams: {
+          sender: creator,
+          method: "create",
+          args: [minUpgradeDelay],
+          extraProgramPages: 3,
+        },
+      }),
+    ).rejects.toThrow("Delay exceeds maximum allowed");
+  });
+
   test("deploys with correct state", async () => {
     const { appClient, result } = await factory.deploy({
       createParams: {
