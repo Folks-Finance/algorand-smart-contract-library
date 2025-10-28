@@ -1,5 +1,5 @@
 from algopy import Global, UInt64
-from algopy.arc4 import Bool, UInt256, abimethod
+from algopy.arc4 import UInt256, abimethod
 
 from ...types import ARC4UInt64, Bytes32
 from ..RateLimiter import RateLimiter, RateLimitBucket

@@ -1,10 +1,10 @@
 import { algorandFixture } from "@algorandfoundation/algokit-utils/testing";
 import type { TransactionSignerAccount } from "@algorandfoundation/algokit-utils/types/account";
-import { type Account, type Address, getApplicationAddress } from "algosdk";
+import { type Account, type Address, OnApplicationComplete, getApplicationAddress } from "algosdk";
 
 import { RateLimiterExposedClient, RateLimiterExposedFactory } from "../../specs/client/RateLimiterExposed.client.ts";
 import { getBucketBoxKey } from "../utils/boxes.ts";
-import { getEventBytes, getRandomBytes } from "../utils/bytes.ts";
+import { convertNumberToBytes, getEventBytes, getRandomBytes } from "../utils/bytes.ts";
 import { SECONDS_IN_DAY, advancePrevBlockTimestamp, getPrevBlockTimestamp } from "../utils/time.ts";
 import { MAX_INT64, MAX_UINT256, getRandomUInt } from "../utils/uint.ts";
 
@@ -43,16 +43,29 @@ describe("RateLimiter", () => {
     expect(appId).not.toEqual(0n);
   });
 
-  test("get current capacity fails if bucket unknown", async () => {
-    await expect(client.send.getCurrentCapacity({ args: [bucketId] })).rejects.toThrow("Unknown bucket");
-  });
+  describe("get current capacity", () => {
+    test.each([{ length: 16 }, { length: 34 }])(`fails when bucket id is $length bytes`, async ({ length }) => {
+      await expect(
+        localnet.algorand.send.appCall({
+          sender: creator,
+          appId,
+          onComplete: OnApplicationComplete.NoOpOC,
+          args: [client.appClient.getABIMethod("get_current_capacity").getSelector(), getRandomBytes(length)],
+        }),
+      ).rejects.toThrow("invalid number of bytes for arc4.static_array<arc4.uint8, 32>");
+    });
 
-  test("get rate duration fails if bucket unknown", async () => {
-    await expect(client.send.getRateDuration({ args: [bucketId] })).rejects.toThrow("Unknown bucket");
+    test("fails if bucket unknown", async () => {
+      await expect(client.send.getCurrentCapacity({ args: [bucketId] })).rejects.toThrow("Unknown bucket");
+    });
   });
 
   test("get rate limit fails if bucket unknown", async () => {
     await expect(client.send.getRateLimit({ args: [bucketId] })).rejects.toThrow("Unknown bucket");
+  });
+
+  test("get rate duration fails if bucket unknown", async () => {
+    await expect(client.send.getRateDuration({ args: [bucketId] })).rejects.toThrow("Unknown bucket");
   });
 
   describe("add bucket", () => {
@@ -378,6 +391,21 @@ describe("RateLimiter", () => {
     afterEach(async () => {
       // reset current capacity
       await client.send.setCurrentCapacity({ args: [bucketId, limit] });
+    });
+
+    test.each([{ length: 16 }, { length: 34 }])(`fails when bucket id is $length bytes`, async ({ length }) => {
+      await expect(
+        localnet.algorand.send.appCall({
+          sender: creator,
+          appId,
+          onComplete: OnApplicationComplete.NoOpOC,
+          args: [
+            client.appClient.getABIMethod("has_capacity").getSelector(),
+            getRandomBytes(length),
+            convertNumberToBytes(0, 32),
+          ],
+        }),
+      ).rejects.toThrow("invalid number of bytes for arc4.static_array<arc4.uint8, 32>");
     });
 
     test("fails if bucket unknown", async () => {

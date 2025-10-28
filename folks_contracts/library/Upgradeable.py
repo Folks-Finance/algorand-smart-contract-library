@@ -71,6 +71,8 @@ class Upgradeable(IUpgradeable, AccessControl, Initialisable, ABC):
 
     @abimethod(create="require")
     def create(self, min_upgrade_delay: UInt64) -> None:
+        # ensure not setting too large of a delay
+        self._check_min_upgrade_delay(min_upgrade_delay)
         self.min_upgrade_delay.value = MinimumUpgradeDelay(ARC4UInt64(0), ARC4UInt64(min_upgrade_delay), ARC4UInt64(0))
 
     @abimethod
@@ -91,7 +93,7 @@ class Upgradeable(IUpgradeable, AccessControl, Initialisable, ABC):
         self._check_sender_role(self.upgradable_admin_role())
 
         # ensure not setting too large of a delay
-        assert min_upgrade_delay <= self.max_for_min_upgrade_delay(), "Delay exceeds maximum allowed"
+        self._check_min_upgrade_delay(min_upgrade_delay)
 
         # ensure timestamp is sufficiently in the future
         self._check_schedule_timestamp(timestamp)
@@ -220,6 +222,10 @@ class Upgradeable(IUpgradeable, AccessControl, Initialisable, ABC):
             min_upgrade_delay.delay_1 if Global.latest_timestamp >= min_upgrade_delay.timestamp
             else min_upgrade_delay.delay_0
         ).as_uint64()
+
+    @subroutine
+    def _check_min_upgrade_delay(self, min_upgrade_delay: UInt64) -> None:
+        assert min_upgrade_delay <= self.max_for_min_upgrade_delay(), "Delay exceeds maximum allowed"
 
     @subroutine
     def _check_schedule_timestamp(self, timestamp: UInt64) -> None:

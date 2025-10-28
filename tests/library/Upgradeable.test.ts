@@ -1,12 +1,12 @@
 import { algorandFixture } from "@algorandfoundation/algokit-utils/testing";
 import type { TransactionSignerAccount } from "@algorandfoundation/algokit-utils/types/account";
-import { getApplicationAddress } from "algosdk";
+import { OnApplicationComplete, getApplicationAddress } from "algosdk";
 import type { Account, Address } from "algosdk";
 
 import { LargeContractToUpgradeToFactory } from "../../specs/client/LargeContractToUpgradeTo.client.ts";
 import { SimpleUpgradeableClient, SimpleUpgradeableFactory } from "../../specs/client/SimpleUpgradeable.client.ts";
 import { getAddressRolesBoxKey, getRoleBoxKey } from "../utils/boxes.ts";
-import { getEventBytes, getRandomBytes, getRoleBytes } from "../utils/bytes.ts";
+import { convertNumberToBytes, getEventBytes, getRandomBytes, getRoleBytes } from "../utils/bytes.ts";
 import { PAGE_SIZE, calculateProgramSha256 } from "../utils/contract.ts";
 import {
   SECONDS_IN_DAY,
@@ -65,6 +65,20 @@ describe("Upgradeable", () => {
       clearStateProgramToUpdateTo = app.clearStateProgram;
       expect(approvalProgramToUpdateTo.length + clearStateProgramToUpdateTo.length).toBeGreaterThan(PAGE_SIZE);
     }
+  });
+
+  test("fails to deploy when min upgrade delay is too large", async () => {
+    const minUpgradeDelay = SECONDS_IN_WEEK * 2n + 1n;
+    await expect(
+      factory.deploy({
+        createParams: {
+          sender: creator,
+          method: "create",
+          args: [minUpgradeDelay],
+          extraProgramPages: 3,
+        },
+      }),
+    ).rejects.toThrow("Delay exceeds maximum allowed");
   });
 
   test("deploys with correct state", async () => {
@@ -285,6 +299,21 @@ describe("Upgradeable", () => {
   });
 
   describe("schedule contract upgrade", () => {
+    test.each([{ length: 30 }, { length: 34 }])(`fails when program hash is $length bytes`, async ({ length }) => {
+      await expect(
+        localnet.algorand.send.appCall({
+          sender: creator,
+          appId,
+          onComplete: OnApplicationComplete.NoOpOC,
+          args: [
+            client.appClient.getABIMethod("schedule_contract_upgrade").getSelector(),
+            getRandomBytes(length),
+            convertNumberToBytes(0, 8),
+          ],
+        }),
+      ).rejects.toThrow("invalid number of bytes for arc4.static_array<arc4.uint8, 32>");
+    });
+
     test("fails when caller is not upgradeable admin", async () => {
       await expect(
         client.send.scheduleContractUpgrade({
