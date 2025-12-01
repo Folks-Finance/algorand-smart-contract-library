@@ -6,6 +6,23 @@ The Folks Smart Contract Library is a curated, modular collection of audited, re
 
 Please refer to the official [documentation](https://docs.google.com/document/d/1asxwEYzNtG2cTTvuTwBszMmEUKMtkL8s7bBROeD1LlU/edit?usp=sharing) for further details.
 
+## Getting Started
+
+To use the Smart Contract Library in your own Algorand Python contracts, run the command:
+
+```bash
+pip3 install git+https://github.com/Folks-Finance/algorand-smart-contract-library.git
+```
+
+then you can simply import the contracts like so:
+
+```python
+from folks_contracts.library.AccessControl import AccessControl
+
+class ExampleContract(AccessControl):
+    ...
+```
+
 ## Requirements
 
 - Linux or macOS
